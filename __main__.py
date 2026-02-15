@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, RawTextHelpFormatter
+from os import cpu_count
 from sys import exit as sys_exit, stdin
 from enum import Enum
 
@@ -9,6 +10,16 @@ class Details:
     newline_count = 0
     max_line_length = 0
     word_count = 0
+
+    def __add__(self, other):
+        tmp = Details()
+        tmp.byte_count = self.byte_count + other.byte_count
+        tmp.char_count = self.char_count + other.char_count
+        tmp.newline_count = self.newline_count + other.newline_count
+        tmp.max_line_length = self.max_line_length + other.max_line_length
+        tmp.word_count = self.word_count + other.word_count
+
+        return tmp
 
 
 class State(Enum):
@@ -37,19 +48,30 @@ def main() -> None:
     parser.add_argument("--files0-from", type=str, help="Read input from the files specified by NUL-terminated names in file F; If F is - then read names from standard input")
     parser.add_argument("-L", "--max-line-length", action="store_true", help="Print the maximum display width")
     parser.add_argument("-w", "--words", action="store_true", help="Print the word counts")
+    parser.add_argument("--total", choices=["auto", "always", "only", "never"], help="When to print a line with total counts; WHEN can be: auto, always, only, never", default="auto")
 
     args = parser.parse_args()
 
     state = get_state(args)
+    file_list = args.FILE + (get_files0_from(args.files0_from) if args.files0_from else [])
+    
+    # TOTAL
+    show_total = False
+    if (args.total != "never" and len(file_list) > 1) or args.total == "always" or args.total == "only":
+        show_total = True
     
     # No FILE
-    if not args.FILE + (get_files0_from(args.files0_from) if args.files0_from else []):
+    if not file_list:
         details = get_stdin_details()
-        print_report(state, details)
+        if args.total != "only":
+            print_report(state, details)
+        if show_total:
+            print_report(state, details, "total")
         sys_exit(0)
 
     # FILE provided
-    for path in args.FILE + (get_files0_from(args.files0_from) if args.files0_from else []):
+    total_details = Details()
+    for path in file_list:
         if path == "-":
             details = get_stdin_details()
         else:
@@ -57,14 +79,19 @@ def main() -> None:
                 details = get_file_details(path)
             except FileNotFoundError:
                 print(f"{parser.prog}: {path}: No such file or directory")
-                sys_exit(1)
+                continue
             except IsADirectoryError:
                 print(f"{parser.prog}: {path}: Is a directory")
-                sys_exit(1)
+                continue
             except PermissionError:
                 print(f"{parser.prog}: {path}: Permission denied")
-                sys_exit(1)
-        print_report(state, details, path)
+                continue
+        if show_total:
+            total_details = total_details + details
+        if args.total != "only":
+            print_report(state, details, path)
+    if show_total:
+        print_report(state, total_details, "total")
 
 
 def get_file_details(path:str) -> Details:
