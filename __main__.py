@@ -7,12 +7,14 @@ class Details:
     byte_count = 0
     char_count = 0
     newline_count = 0
+    max_line_length = 0
 
 
 class State(Enum):
     LINES = 1
     BYTES = 4
     CHARS = 8
+    LENGTH = 16
 
 
 def main() -> None:
@@ -31,7 +33,8 @@ def main() -> None:
     parser.add_argument("-m", "--chars", action="store_true", help="Print the character counts")
     parser.add_argument("-l", "--lines", action="store_true", help="Print the newline counts")
     parser.add_argument("--files0-from", type=str, help="Read input from the files specified by NUL-terminated names in file F; If F is - then read names from standard input")
-    
+    parser.add_argument("-L", "--max-line-length", action="store_true", help="Print the maximum display width")
+
     args = parser.parse_args()
 
     state = get_state(args)
@@ -66,12 +69,17 @@ def get_file_details(path:str) -> Details:
     with open(path, "r") as file:
         for line in file:
             # LINES
+            line_length = 0
             details.newline_count += 1
             for char in line:
                 # BYTES
                 details.byte_count += len(char.encode("utf-8"))
                 # CHARS
                 details.char_count += 1
+                # LENGTH
+                line_length += 1
+            if line_length > details.max_line_length:
+                details.max_line_length = line_length - 1
 
     return details
 
@@ -82,12 +90,20 @@ def get_stdin_details() -> Details:
     data = stdin.buffer.read()
     # BYTES
     details.byte_count += len(data)
+    line_length = 0
     for char in data:
+        # LENGTH
+        line_length += 1
         # CHARS
         details.char_count += 1
         # LINES
         if char == newline_ord:
             details.newline_count += 1
+            line_length = 0
+            if line_length > details.max_line_length:
+                details.max_line_length = line_length
+        if line_length > details.max_line_length:
+            details.max_line_length = line_length
 
     return details
 
@@ -103,6 +119,8 @@ def get_state(args) -> int:
     state |= args.lines * State.LINES.value
     state |= args.chars * State.CHARS.value
     state |= args.bytes * State.BYTES.value
+    state |= args.max_line_length * State.LENGTH.value
+
     return state or State.CHARS.value | State.LINES.value | State.BYTES.value # TODO: change to line, word and byte
 
 
@@ -113,6 +131,8 @@ def print_report(state, details, path="") -> None:
         print(f"{details.char_count:4}", end="  ")
     if state & State.BYTES.value:
         print(f"{details.byte_count:4}", end="  ")
+    if state & State.LENGTH.value:
+        print(f"{details.max_line_length:4}", end="  ")
     print(path)
 
 
