@@ -4,6 +4,7 @@ from sys import exit as sys_exit, stdin
 
 class Details:
     byte_count = 0
+    char_count = 0
 
 
 def main() -> None:
@@ -19,13 +20,15 @@ def main() -> None:
 
     parser.add_argument("FILE", type=str, nargs="*", help="The file in question")
     parser.add_argument("-c", "--bytes", action="store_true", help="Print the byte counts")
+    parser.add_argument("-m", "--chars", action="store_true", help="Print the character counts")
     
     args = parser.parse_args()
     
     # No FILE
     if not args.FILE:
         details = get_stdin_details()
-        print(details.byte_count)
+        print(details.char_count)
+        sys_exit(0)
 
     # FILE provided
     for path in args.FILE:
@@ -43,7 +46,7 @@ def main() -> None:
             except PermissionError:
                 print(f"{parser.prog}: {path}: Permission denied")
                 sys_exit(1)
-        print(details.byte_count)
+        print(details.char_count)
 
 
 def get_file_details(path:str) -> Details:
@@ -53,7 +56,9 @@ def get_file_details(path:str) -> Details:
             for char in line:
                 # BYTES
                 details.byte_count += len(char.encode("utf-8"))
-    
+                # CHARS
+                details.char_count += 1
+
     return details
 
 
@@ -62,6 +67,9 @@ def get_stdin_details() -> Details:
     data = stdin.buffer.read()
     # BYTES
     details.byte_count += len(data)
+    for _ in data:
+        # CHARS
+        details.char_count += 1
 
     return details
 
