@@ -5,6 +5,7 @@ from sys import exit as sys_exit, stdin
 class Details:
     byte_count = 0
     char_count = 0
+    newline_count = 0
 
 
 def main() -> None:
@@ -21,13 +22,14 @@ def main() -> None:
     parser.add_argument("FILE", type=str, nargs="*", help="The file in question")
     parser.add_argument("-c", "--bytes", action="store_true", help="Print the byte counts")
     parser.add_argument("-m", "--chars", action="store_true", help="Print the character counts")
+    parser.add_argument("-l", "--lines", action="store_true", help="Print the newline counts")
     
     args = parser.parse_args()
     
     # No FILE
     if not args.FILE:
         details = get_stdin_details()
-        print(details.char_count)
+        print(details.newline_count)
         sys_exit(0)
 
     # FILE provided
@@ -46,13 +48,15 @@ def main() -> None:
             except PermissionError:
                 print(f"{parser.prog}: {path}: Permission denied")
                 sys_exit(1)
-        print(details.char_count)
+        print(details.newline_count)
 
 
 def get_file_details(path:str) -> Details:
     details = Details()
     with open(path, "r") as file:
         for line in file:
+            # LINES
+            details.newline_count += 1
             for char in line:
                 # BYTES
                 details.byte_count += len(char.encode("utf-8"))
@@ -63,13 +67,17 @@ def get_file_details(path:str) -> Details:
 
 
 def get_stdin_details() -> Details:
+    newline_ord = ord("\n")
     details = Details()
     data = stdin.buffer.read()
     # BYTES
     details.byte_count += len(data)
-    for _ in data:
+    for char in data:
         # CHARS
         details.char_count += 1
+        # LINES
+        if char == newline_ord:
+            details.newline_count += 1
 
     return details
 
